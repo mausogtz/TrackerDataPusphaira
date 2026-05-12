@@ -718,10 +718,17 @@ def load_match_files():
     try:
         dist = pd.read_csv("last_match_distances.csv", on_bad_lines="skip")
         over = pd.read_csv("last_match_overview.csv", on_bad_lines="skip")
+        
+        # --- FIX: Safely force all speed profile columns to be numbers ---
+        # This prevents text like 'MatchSession' from crashing the charts
+        if not over.empty:
+            speed_cols = [c for c in over.columns if "Distance Profile M at" in c]
+            for col in speed_cols:
+                over[col] = pd.to_numeric(over[col], errors="coerce").fillna(0)
+                
         return dist, over
     except FileNotFoundError:
         return pd.DataFrame(), pd.DataFrame()
-
 
 @st.cache_data
 def load_new_football_stats():
