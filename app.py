@@ -4,6 +4,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 import re
+import streamlit.components.v1 as components  # <--- ADD THIS
 
 # ─── PAGE CONFIG ──────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -474,7 +475,6 @@ def make_speed_zone_stacked_bar(match_over_df):
         ),
     )
     return fig
-
 
 def make_calendar_heatmap(pdata_macro, player_name):
     """GitHub-style daily load calendar for an individual player."""
@@ -1265,6 +1265,23 @@ if view_mode == "Team Overview":
         )
         style_chart(fig, title="Load Periodization by Day of Week")
         st.plotly_chart(fig, use_container_width=True)
+
+
+    # ── League Table & Fixtures ───────────────────────────────────────────────
+    st.markdown(
+        '<div class="section-header">🌍 League Table & Fixtures</div>',
+        unsafe_allow_html=True,
+    )
+    
+    embed_html = """
+    <iframe src="https://embed.hollandsevelden.nl/competities/2025-2026/zuid-1/zo/5d/?sTFC=%23ffffff&amp;sBC=%23ffffff&amp;sAC=%23f3f3f3" style="width:100%;min-width:470px; height:1700px;" frameborder="0" border="0" scrolling="no" style="border:0;"><p><img src="https://www.hollandsevelden.nl/i/t/t_0.png" alt="HollandseVelden.nl"> Alle <a href="https://www.hollandsevelden.nl/competities/2025-2026/zuid-1/zo/5d/?sTFC=%23ffffff&amp;sBC=%23ffffff&amp;sAC=%23f3f3f3" target="_blank">standen, uitslagen en programma’s in het amateurvoetbal</a> vind je op HollandseVelden.nl</p></iframe>
+    """
+    
+    # We pass the exact height of 1700px to ensure Streamlit creates a container large enough
+    components.html(embed_html, height=1700, scrolling=True)
+
+    st.markdown("---")
+
         # ── Season Statistical Leaders (Top 5) ────────────────────────────────────
     if not season_total_df.empty:
         st.markdown(
