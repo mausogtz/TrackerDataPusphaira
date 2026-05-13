@@ -1274,8 +1274,7 @@ if view_mode == "Team Overview":
     )
     
     embed_html = """
-    <iframe src="https://embed.hollandsevelden.nl/competities/2025-2026/zuid-1/zo/5d/?sTFC=%23ffffff&amp;sBC=%23ffffff&amp;sAC=%23f3f3f3" style="width:100%;min-width:470px; height:1700px;" frameborder="0" border="0" scrolling="no" style="border:0;"><p><img src="https://www.hollandsevelden.nl/i/t/t_0.png" alt="HollandseVelden.nl"> Alle <a href="https://www.hollandsevelden.nl/competities/2025-2026/zuid-1/zo/5d/?sTFC=%23ffffff&amp;sBC=%23ffffff&amp;sAC=%23f3f3f3" target="_blank">standen, uitslagen en programma’s in het amateurvoetbal</a> vind je op HollandseVelden.nl</p></iframe>
-    """
+<iframe src="https://embed.hollandsevelden.nl/competities/2025-2026/zuid-1/zo/5d/?sTFC=%23ffffff&amp;sFC=%23ededed&amp;bBT=true&amp;sBC=%23ffffff&amp;bAT=true&amp;sAC=%23f3f3f3" style="width:100%;min-width:470px; height:1700px;" frameborder="0" border="0" scrolling="no" style="border:0;"><p><img src="https://www.hollandsevelden.nl/i/t/t_0.png" alt="HollandseVelden.nl"> Alle <a href="https://www.hollandsevelden.nl/competities/2025-2026/zuid-1/zo/5d/?sTFC=%23ffffff&amp;sFC=%23ededed&amp;bBT=true&amp;sBC=%23ffffff&amp;bAT=true&amp;sAC=%23f3f3f3" target="_blank">standen, uitslagen en programma’s in het amateurvoetbal</a> vind je op HollandseVelden.nl</p></iframe>    """
     
     # We pass the exact height of 1700px to ensure Streamlit creates a container large enough
     components.html(embed_html, height=1700, scrolling=True)
