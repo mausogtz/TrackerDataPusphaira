@@ -2371,7 +2371,7 @@ elif view_mode == "Individual Athlete":
         p_row  = season_total_df[season_total_df["Player"] == sel_player].iloc[0]
         t_avg  = season_total_df.mean(numeric_only=True)
         compare_stats = [
-            "Matches Played", "Minutes", "Goals", "Assists", "Total Shots",
+            "Matches Started", "Matches Played", "Minutes", "Goals", "Assists", "Total Shots", "Shots on Target", "Shots off Target","Shots Blocked",
             "Goals x90", "Assists x90", "G+A x90", "GF On Pitch", "GA On Pitch",
             "Goal+/-", "Points per Match",
         ]
