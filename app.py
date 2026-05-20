@@ -1170,6 +1170,7 @@ def render_lineup_card(stats_df, pos_df):
             assists = int(r.get("Assists", 0)) if "Assists" in df.columns and pd.notna(r.get("Assists", 0)) else 0
             yellow  = int(r.get("Yellow", 0))  if "Yellow" in df.columns and pd.notna(r.get("Yellow", 0)) else 0
             red     = int(r.get("Red", 0))     if "Red" in df.columns and pd.notna(r.get("Red", 0)) else 0
+            mom     = int(r.get("Man of the Match", 0))  if "Man of the Match" in df.columns and pd.notna(r.get("Man of the Match", 0)) else 0
 
             stats_badges = ""
             if goals > 0:
@@ -1180,6 +1181,8 @@ def render_lineup_card(stats_df, pos_df):
                 stats_badges += f'<span style="margin-right:0.45rem;">🟨 {yellow}</span>'
             if red > 0:
                 stats_badges += f'<span style="margin-right:0.45rem;">🟥 {red}</span>'
+            if mom > 0:
+                stats_badges += f'<span style="margin-right:0.45rem;">🏆</span>'
 
             # Note: Removed whitespace indentation to prevent Markdown code-block parsing
             rows.append(
