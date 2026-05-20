@@ -2854,8 +2854,4 @@ elif view_mode == "Player Comparison":
     style_chart(fig_trend, height=340,
                 title=f"{load_metric} — 7-Day Rolling Average Comparison")
     fig_trend.update_layout(xaxis_title="", yaxis_title=load_metric)
-<<<<<<< Updated upstream
     st.plotly_chart(fig_trend, use_container_width=True)
-=======
-    st.plotly_chart(fig_trend, use_container_width=True)
->>>>>>> Stashed changes
