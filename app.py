@@ -176,6 +176,67 @@ def inject_css():
             margin-bottom: 1rem;
             border: 1px solid rgba(255,255,255,0.07);
         }}
+        /* ── Lineup Card Styles ─────────────────────────────────────── */
+        .lineup-section {{
+            background: rgba(255,255,255,0.025);
+            border-radius: 16px;
+            padding: 1.25rem 1.5rem;
+            border: 1px solid rgba(255,255,255,0.06);
+        }}
+        .lineup-title {{
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.07);
+        }}
+        .lineup-row {{
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.45rem 0.65rem;
+            border-radius: 8px;
+            margin-bottom: 0.3rem;
+            transition: background 0.15s;
+        }}
+        .lineup-row:hover {{
+            background: rgba(255,255,255,0.04);
+        }}
+        .lineup-number {{
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            font-size: 0.72rem;
+            font-weight: 800;
+            letter-spacing: -0.01em;
+            flex-shrink: 0;
+        }}
+        .lineup-name {{
+            flex: 1;
+            margin-left: 0.65rem;
+            font-size: 0.82rem;
+            font-weight: 600;
+            color: #e2e8f0;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }}
+        .lineup-minutes {{
+            font-size: 0.72rem;
+            font-weight: 600;
+            color: {C_TAUPE};
+            white-space: nowrap;
+            margin-left: 0.5rem;
+        }}
+        .lineup-minutes span {{
+            color: #e2e8f0;
+            font-weight: 700;
+        }}
         </style>
         """,
         unsafe_allow_html=True,
@@ -744,20 +805,22 @@ def load_historical_data():
 
 @st.cache_data
 def load_positions():
-    """Load positions.csv with Primary, Second, and Third Position columns."""
+    """Load positions.csv with Primary, Second, Third Position, and Number columns."""
     try:
-        # Added encoding='latin-1' to handle non-UTF-8 characters
         pos = pd.read_csv(
-            os.path.join(DATA_DIR, "positions.csv"), 
-            on_bad_lines="skip", 
+            os.path.join(DATA_DIR, "positions.csv"),
+            on_bad_lines="skip",
             encoding='latin-1'
         )
         pos.columns = pos.columns.str.strip()
         if "Player" in pos.columns:
             pos["Player"] = pos["Player"].astype(str).str.strip()
+        # Clean up Number column if present
+        if "Number" in pos.columns:
+            pos["Number"] = pd.to_numeric(pos["Number"], errors="coerce")
         return pos
     except FileNotFoundError:
-        return pd.DataFrame(columns=["Player", "Primary Position", "Second Position", "Third Position"])
+        return pd.DataFrame(columns=["Player", "Primary Position", "Second Position", "Third Position", "Number"])
 
 @st.cache_data
 def load_total_football_stats():
@@ -820,7 +883,6 @@ def load_match_files(match_dir, match_folder_name):
         dist = pd.read_csv(os.path.join(match_dir, "whole_match_distances.csv"), on_bad_lines="skip")
         if not dist.empty and "Athlete" in dist.columns:
             dist["Athlete"] = dist["Athlete"].astype(str).str.strip()
-        # Drop Positions column if present
         if "Positions" in dist.columns:
             dist = dist.drop(columns=["Positions"])
     except FileNotFoundError:
@@ -832,7 +894,6 @@ def load_match_files(match_dir, match_folder_name):
         if not over.empty:
             if "Athlete" in over.columns:
                 over["Athlete"] = over["Athlete"].astype(str).str.strip()
-            # Drop Positions column if present
             if "Positions" in over.columns:
                 over = over.drop(columns=["Positions"])
             speed_cols = [c for c in over.columns if "Distance Profile M at" in c]
@@ -905,7 +966,7 @@ except FileNotFoundError:
 positions_df = load_positions()
 if not positions_df.empty and "Player" in positions_df.columns:
     pos_merge_cols = ["Player"] + [
-        c for c in ["Primary Position", "Second Position", "Third Position"]
+        c for c in ["Primary Position", "Second Position", "Third Position", "Number"]
         if c in positions_df.columns
     ]
     merged_df = merged_df.merge(
@@ -914,7 +975,6 @@ if not positions_df.empty and "Player" in positions_df.columns:
         right_on="Player",
         how="left",
     )
-    # Drop the duplicate 'Player' key column brought in by merge
     if "Player" in merged_df.columns:
         merged_df = merged_df.drop(columns=["Player"])
 
@@ -936,7 +996,6 @@ with st.sidebar:
     )
     st.divider()
 
-    # Dynamic Match Selector Filter
     st.markdown(
         f'<div style="color:{C_TAUPE};font-size:0.68rem;text-transform:uppercase;'
         f'letter-spacing:0.12em;margin-bottom:0.4rem">Select Match View</div>',
@@ -1027,7 +1086,7 @@ else:
 is_match = merged_df["Session Type"].astype(str).str.contains("Match|Game", case=False, na=False)
 match_data = merged_df[is_match]
 
-# Helper to get position label for a player
+
 def get_player_position(player_name, df):
     if "Primary Position" in df.columns:
         row = df[df["Athlete Name"] == player_name]
@@ -1042,6 +1101,123 @@ def get_player_position(player_name, df):
             return " / ".join(parts) if parts else "Unknown"
     return "Unknown"
 
+
+def get_player_number(player_name, df):
+    """Return the jersey number for a player as a clean string, or '' if not found."""
+    if "Number" in df.columns:
+        row = df[df["Athlete Name"] == player_name]
+        if not row.empty:
+            num = row["Number"].iloc[0]
+            if pd.notna(num):
+                try:
+                    return str(int(num))
+                except (ValueError, TypeError):
+                    return str(num).strip()
+    return ""
+
+
+def get_number_from_positions(player_name, pos_df):
+    """Look up jersey number directly from positions_df by player name."""
+    if pos_df.empty or "Number" not in pos_df.columns or "Player" not in pos_df.columns:
+        return ""
+    row = pos_df[pos_df["Player"].str.strip().str.lower() == player_name.strip().lower()]
+    if row.empty:
+        return ""
+    num = row["Number"].iloc[0]
+    if pd.notna(num):
+        try:
+            return str(int(num))
+        except (ValueError, TypeError):
+            return str(num).strip()
+    return ""
+
+
+def render_lineup_card(stats_df, pos_df):
+    """
+    Render a visually styled Starting XI + Bench card from match stats CSV.
+    Expects columns: Player, Played, Started, Minutes.
+    Players with Started=1 → XI; Played=1 & Started=0 → Bench.
+    Players with Played=0 (or not in the file) are not shown.
+    """
+    required = {"Player", "Played", "Started", "Minutes"}
+    if stats_df.empty or not required.issubset(set(stats_df.columns)):
+        return
+
+    # Filter to only players who played
+    played_df = stats_df[stats_df["Played"] == 1].copy()
+    if played_df.empty:
+        st.info("No lineup data available for this match.")
+        return
+
+    starters = played_df[played_df["Started"] == 1].copy()
+    bench    = played_df[played_df["Started"] == 0].copy()
+
+    # Sort by minutes descending within each group
+    starters = starters.sort_values("Minutes", ascending=False)
+    bench    = bench.sort_values("Minutes", ascending=False)
+
+    def player_rows_html(df, accent_color, bg_number):
+        rows = []
+        for _, r in df.iterrows():
+            name   = str(r["Player"])
+            mins   = r.get("Minutes", 0)
+            mins_v = int(mins) if pd.notna(mins) else 0
+            num    = get_number_from_positions(name, pos_df)
+            num_display = num if num else "—"
+
+            # ── Parse extra match events ──
+            goals   = int(r.get("Goals", 0))   if "Goals" in df.columns and pd.notna(r.get("Goals", 0)) else 0
+            assists = int(r.get("Assists", 0)) if "Assists" in df.columns and pd.notna(r.get("Assists", 0)) else 0
+            yellow  = int(r.get("Yellow", 0))  if "Yellow" in df.columns and pd.notna(r.get("Yellow", 0)) else 0
+            red     = int(r.get("Red", 0))     if "Red" in df.columns and pd.notna(r.get("Red", 0)) else 0
+
+            stats_badges = ""
+            if goals > 0:
+                stats_badges += f'<span style="margin-right:0.45rem;">⚽ {goals}</span>'
+            if assists > 0:
+                stats_badges += f'<span style="margin-right:0.45rem;">🅰 {assists}</span>'
+            if yellow > 0:
+                stats_badges += f'<span style="margin-right:0.45rem;">🟨 {yellow}</span>'
+            if red > 0:
+                stats_badges += f'<span style="margin-right:0.45rem;">🟥 {red}</span>'
+
+            # Note: Removed whitespace indentation to prevent Markdown code-block parsing
+            rows.append(
+                '<div class="lineup-row">'
+                f'<div class="lineup-number" style="background:{bg_number};color:{accent_color};">{num_display}</div>'
+                f'<div class="lineup-name">{name}</div>'
+                f'<div class="lineup-minutes">{stats_badges}⏱ <span>{mins_v}\'</span></div>'
+                '</div>'
+            )
+        return "".join(rows)
+
+    xi_html    = player_rows_html(starters, C_GREEN,   "rgba(78,96,64,0.25)")
+    bench_html = player_rows_html(bench,    C_FREESIA, "rgba(193,165,96,0.15)")
+
+    if bench_html:
+        bench_section = (
+            f'<div class="lineup-title" style="color:{C_FREESIA};">'
+            f'🔄 Bench ({len(bench)} played)</div>'
+            f'{bench_html}'
+        )
+    else:
+        bench_section = f'<div class="lineup-title" style="color:{C_TAUPE};">No bench data</div>'
+
+    # ── Final HTML String ──
+    # Constructed using string concatenation rather than a multiline f-string
+    # to ensure zero indentation is passed to the Streamlit markdown engine.
+    html = (
+        '<div style="display:flex;gap:1.25rem;flex-wrap:wrap;">'
+        '<div class="lineup-section" style="flex:1;min-width:260px;">'
+        f'<div class="lineup-title" style="color:{C_GREEN};">⚽ Starting XI</div>'
+        f'{xi_html}'
+        '</div>'
+        '<div class="lineup-section" style="flex:1;min-width:260px;">'
+        f'{bench_section}'
+        '</div>'
+        '</div>'
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════════════════════
 # VIEW 1 — TEAM OVERVIEW
@@ -1094,6 +1270,17 @@ if view_mode == "Team Overview":
                 if match_event_json.get("video_url"):
                     st.video(match_event_json["video_url"])
             st.markdown("<br>", unsafe_allow_html=True)
+
+    # ── Starting XI & Bench Lineup Card ───────────────────────────────────────
+    if not selected_match_stats_df.empty:
+        st.markdown(
+            f'<div style="color:{C_TAUPE};font-size:0.68rem;font-weight:700;'
+            f'text-transform:uppercase;letter-spacing:0.15em;margin-bottom:0.75rem;">'
+            "MATCH LINEUP</div>",
+            unsafe_allow_html=True,
+        )
+        render_lineup_card(selected_match_stats_df, positions_df)
+        st.markdown("<br>", unsafe_allow_html=True)
 
     # ── Selected Match KPI Split View ─────────────────────────────────────────
     if selected_match_date and not match_data.empty:
@@ -1532,7 +1719,6 @@ elif view_mode == "Individual Athlete":
 
     with st.sidebar:
         st.divider()
-        # Use Primary Position from positions.csv if available, else fall back
         pos_col = "Primary Position" if "Primary Position" in filtered_macro_df.columns else None
         if pos_col:
             positions = ["All"] + sorted(
@@ -1559,8 +1745,8 @@ elif view_mode == "Individual Athlete":
         st.warning("No data available.")
         st.stop()
 
-    # Get position using positions.csv data
     p_pos = get_player_position(sel_player, filtered_macro_df)
+    p_num = get_player_number(sel_player, filtered_macro_df)
 
     latest   = pdata_macro.iloc[-1]
     acwr_v   = latest["ACWR"]
@@ -1581,12 +1767,27 @@ elif view_mode == "Individual Athlete":
     )
     peak_speed = pdata_macro["Top Speed (kph)"].max()
 
-    # Readiness composite score
     strain_max  = filtered_macro_df.groupby("Athlete Name")["Strain"].max().max()
     strain_norm = strain_v / max(strain_max, 1)
     readiness   = compute_readiness_score(acwr_v, mono_v, strain_norm)
 
-    st.markdown(f"# 📊 {sel_player}")
+    # ── Player Header with Jersey Number ──────────────────────────────────────
+    if p_num:
+        st.markdown(
+            f'<div style="display:flex;align-items:center;gap:1rem;margin-bottom:0.2rem">'
+            f'  <div style="display:flex;align-items:center;justify-content:center;'
+            f'       width:52px;height:52px;border-radius:12px;'
+            f'       background:rgba(78,96,64,0.2);border:2px solid {C_GREEN};'
+            f'       font-size:1.4rem;font-weight:800;color:{C_GREEN};flex-shrink:0;">'
+            f'    {p_num}'
+            f'  </div>'
+            f'  <h1 style="margin:0;padding:0;">{sel_player}</h1>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(f"# 📊 {sel_player}")
+
     st.markdown(
         f'<span style="color:{C_TAUPE};font-size:0.88rem;font-weight:500">'
         f"{p_pos} &nbsp;·&nbsp; {len(pdata_macro)} sessions logged</span>",
@@ -1610,13 +1811,11 @@ elif view_mode == "Individual Athlete":
     st.markdown('<div class="section-header">🏟️ LAST MATCH IN-DEPTH REVIEW</div>',
                 unsafe_allow_html=True)
 
-    # Safely match player in overview
     p_over = pd.DataFrame()
     if not match_over_df.empty and "Athlete" in match_over_df.columns:
         mask = match_over_df["Athlete"].astype(str).str.strip().str.lower() == sel_player.strip().lower()
         p_over = match_over_df[mask]
 
-    # Pre-calculate main physical data
     wm_plm = pd.Series(dtype=float)
     wm_avg = pd.Series(dtype=float)
     if selected_match_date and not p_matches.empty:
@@ -1800,7 +1999,6 @@ elif view_mode == "Individual Athlete":
                 fig.update_layout(xaxis_title="Speed (km/h)", yaxis_title="Distance Covered (m)")
                 st.plotly_chart(fig, use_container_width=True)
 
-    
     if selected_match_dir:
         player_hm_dir = os.path.join(selected_match_dir, "players", sel_player)
         hm_fh_path = os.path.join(player_hm_dir, "HM_FH.png")
@@ -2223,13 +2421,11 @@ elif view_mode == "Player Comparison":
         st.info("Please select at least 2 players from the sidebar to begin comparison.")
         st.stop()
 
-    # Assign a distinct color to each player
     player_colors_map = {
         p: COMPARISON_COLORS[i % len(COMPARISON_COLORS)]
         for i, p in enumerate(sel_players)
     }
 
-    # ── Compute per-player metrics ────────────────────────────────────────────
     strain_max_global = filtered_macro_df.groupby("Athlete Name")["Strain"].max().max()
 
     player_metrics = {}
@@ -2265,7 +2461,6 @@ elif view_mode == "Player Comparison":
             "position":       get_player_position(player, filtered_macro_df),
         }
 
-    # ── Section 1: Player Header Cards ───────────────────────────────────────
     st.markdown(
         '<div class="section-header">👤 Player Overview</div>',
         unsafe_allow_html=True,
@@ -2274,9 +2469,20 @@ elif view_mode == "Player Comparison":
     for i, player in enumerate(sel_players):
         color = player_colors_map[player]
         m = player_metrics[player]
+        p_num_comp = get_player_number(player, filtered_macro_df)
+        num_html = (
+            f'<div style="display:inline-flex;align-items:center;justify-content:center;'
+            f'width:28px;height:28px;border-radius:6px;background:rgba(255,255,255,0.06);'
+            f'border:1px solid {color};font-size:0.78rem;font-weight:800;color:{color};'
+            f'margin-right:0.4rem;">{p_num_comp}</div>'
+            if p_num_comp else ""
+        )
         header_cols[i].markdown(
             f'<div class="player-header-card" style="border-top: 3px solid {color};">'
-            f'<div style="font-size:1.05rem;font-weight:800;color:{color};margin-bottom:0.3rem">{player}</div>'
+            f'<div style="display:flex;align-items:center;justify-content:center;margin-bottom:0.3rem">'
+            f'{num_html}'
+            f'<span style="font-size:1.05rem;font-weight:800;color:{color}">{player}</span>'
+            f'</div>'
             f'<div style="font-size:0.72rem;color:{C_TAUPE};margin-bottom:0.5rem">{m["position"]}</div>'
             f'<div style="font-size:0.75rem;color:#e2e8f0;margin-bottom:0.25rem">'
             f'ACWR: <b style="color:{m["acwr_color"]}">{m["acwr"]:.2f}</b>'
@@ -2289,7 +2495,6 @@ elif view_mode == "Player Comparison":
 
     st.markdown("---")
 
-    # ── Section 2: Key Metrics Comparison Grid ────────────────────────────────
     st.markdown(
         '<div class="section-header">📊 Key Performance Metrics</div>',
         unsafe_allow_html=True,
@@ -2309,7 +2514,6 @@ elif view_mode == "Player Comparison":
         metric_cols = st.columns(len(sel_players))
         vals = {p: player_metrics[p][key] for p in sel_players}
         valid_vals = {p: v for p, v in vals.items() if pd.notna(v) and v != 0}
-        # Best: higher is better except ACWR (closest to 1.1) and Strain (lower)
         best_player = None
         if valid_vals:
             if key == "acwr":
@@ -2336,7 +2540,6 @@ elif view_mode == "Player Comparison":
 
     st.markdown("---")
 
-    # ── Section 3: Distance Metrics Grouped Bar Chart ─────────────────────────
     st.markdown(
         '<div class="section-header">📏 Match Distance Breakdown</div>',
         unsafe_allow_html=True,
@@ -2369,7 +2572,6 @@ elif view_mode == "Player Comparison":
 
     st.markdown("---")
 
-    # ── Section 4: Physical Profile Multi-Radar ───────────────────────────────
     st.markdown(
         '<div class="section-header">🎯 Physical Profile vs Team Average</div>',
         unsafe_allow_html=True,
@@ -2381,7 +2583,6 @@ elif view_mode == "Player Comparison":
         st.plotly_chart(radar_fig, use_container_width=True)
 
     with col_perc:
-        # Percentile grouped bar chart
         perc_metrics_list = [
             ("Distance (m)",               "Avg Distance"),
             ("High Intensity Running (m)",  "Avg HIR"),
@@ -2429,7 +2630,6 @@ elif view_mode == "Player Comparison":
 
     st.markdown("---")
 
-    # ── Section 5: ACWR & Readiness Comparison ───────────────────────────────
     st.markdown(
         '<div class="section-header">🩺 Load & Readiness Comparison</div>',
         unsafe_allow_html=True,
@@ -2437,7 +2637,6 @@ elif view_mode == "Player Comparison":
     col_acwr1, col_acwr2 = st.columns(2)
 
     with col_acwr1:
-        # ACWR grouped with zone bands
         acwr_vals = [player_metrics[p]["acwr"] for p in sel_players]
         acwr_colors = [player_colors_map[p] for p in sel_players]
         fig_acwr = go.Figure()
@@ -2468,7 +2667,6 @@ elif view_mode == "Player Comparison":
         st.plotly_chart(fig_acwr, use_container_width=True)
 
     with col_acwr2:
-        # Readiness + Strain scatter
         readiness_vals = [player_metrics[p]["readiness"] for p in sel_players]
         strain_vals    = [player_metrics[p]["strain"] for p in sel_players]
         colors_list    = [player_colors_map[p] for p in sel_players]
@@ -2494,12 +2692,10 @@ elif view_mode == "Player Comparison":
         fig_rs.update_layout(xaxis_title="Training Strain", yaxis_title="Readiness Score (/100)")
         st.plotly_chart(fig_rs, use_container_width=True)
 
-    # ACWR Timeline comparison
     fig_timeline = go.Figure()
     for player in sel_players:
         color = player_colors_map[player]
         pm = filtered_macro_df[filtered_macro_df["Athlete Name"] == player]
-        r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
         fig_timeline.add_trace(go.Scatter(
             x=pm["Start Date"], y=pm["ACWR"],
             mode="lines",
@@ -2516,14 +2712,12 @@ elif view_mode == "Player Comparison":
 
     st.markdown("---")
 
-    # ── Section 6: Season Football Statistics Comparison ─────────────────────
     if not season_total_df.empty:
         st.markdown(
             '<div class="section-header">🏆 Season Football Statistics</div>',
             unsafe_allow_html=True,
         )
 
-        # Filter to only players present in season stats
         players_in_stats = [p for p in sel_players if p in season_total_df["Player"].values]
 
         if players_in_stats:
@@ -2535,7 +2729,6 @@ elif view_mode == "Player Comparison":
             ]
             valid_football = [s for s in football_stats if s in season_total_df.columns]
 
-            # Metric cards row for each stat
             st.markdown(
                 f'<div style="color:{C_TAUPE};font-size:0.72rem;margin-bottom:1rem;">'
                 "Metric cards below show each player's value. 👑 marks the best performer per metric.</div>",
@@ -2578,7 +2771,6 @@ elif view_mode == "Player Comparison":
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # Grouped bar chart for key football stats
             bar_stats = ["Goals", "Assists", "Total Shots", "G+A x90"]
             valid_bar_stats = [s for s in bar_stats if s in season_total_df.columns]
             if valid_bar_stats and players_in_stats:
@@ -2598,7 +2790,6 @@ elif view_mode == "Player Comparison":
                 fig_fb.update_layout(barmode="group", xaxis_title="", yaxis_title="Value")
                 st.plotly_chart(fig_fb, use_container_width=True)
 
-            # On-pitch impact chart
             if "GF On Pitch" in season_total_df.columns and "GA On Pitch" in season_total_df.columns:
                 fig_pitch = go.Figure()
                 for player in players_in_stats:
@@ -2606,7 +2797,6 @@ elif view_mode == "Player Comparison":
                     row = season_total_df[season_total_df["Player"] == player].iloc[0]
                     gf  = row.get("GF On Pitch", 0)
                     ga  = row.get("GA On Pitch", 0)
-                    gpm = row.get("Goal+/-", np.nan)
                     r_c2, g_c2, b_c2 = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
                     fig_pitch.add_trace(go.Scatter(
                         x=[ga], y=[gf],
@@ -2625,7 +2815,6 @@ elif view_mode == "Player Comparison":
                             "GA On Pitch: %{x}<br>GF On Pitch: %{y}<extra></extra>"
                         ),
                     ))
-                # Diagonal reference line
                 all_gf = [season_total_df[season_total_df["Player"] == p].iloc[0].get("GF On Pitch", 0) for p in players_in_stats]
                 all_ga = [season_total_df[season_total_df["Player"] == p].iloc[0].get("GA On Pitch", 0) for p in players_in_stats]
                 max_val = max(max(all_gf, default=1), max(all_ga, default=1)) * 1.1
@@ -2641,7 +2830,6 @@ elif view_mode == "Player Comparison":
 
     st.markdown("---")
 
-    # ── Section 7: Physical Load Season Trend Overlay ────────────────────────
     st.markdown(
         '<div class="section-header">📈 Season Load Trend Overlay</div>',
         unsafe_allow_html=True,
